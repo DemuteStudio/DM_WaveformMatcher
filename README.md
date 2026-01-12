@@ -19,6 +19,16 @@ When doing remote recordings we record we record remotely  and already do edits 
 6. Click Match Waveforms -> now it will search the clean file for matches to the edited files and copy the best matches below each edited file. You can look at the log at the bottom to see details and potential errors.
 7. When the progress bar has finished check the matches to make sure they are correct.
 
+## Instalation:
+---
+Reapack
+1. Download and install Reapack for your platform here(also the user Guide): Reapack Download
+2. go to Extensions->Reapack->Import Repositories paste the following link: Comming soon
+
+Manual:
+1. Download or clone the repository.
+2. Add compareWaveform.lua as a new action in reaper, if you move it make sure stt_transcribe.py is in the same folder for STT to work.
+
 ## STT Setup:
 ---
 **STT Engines Available:**
@@ -27,7 +37,7 @@ When doing remote recordings we record we record remotely  and already do edits 
 - **Azure** - Requires API key, excellent accuracy, paid(free version)
 - **Whisper (Local)** - Offline, excellent accuracy, slower
 - **Vosk (Local)** - Offline, fast, good accuracy
-- 
+
 **Google (Free)** - Recommended for getting started
 1. Install Python 3.8+ with pip
 2. Run: `pip install SpeechRecognition`
