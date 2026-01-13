@@ -59,14 +59,14 @@ local CONFIG = {
 
     short_clip_threshold = 20, --Max number of peaks in edited clip to be considered 'short'.
     -- Matching Tolerances
-    max_tolerance_short = 0.10, --Max time error (seconds) for peak matching in short clips. Lower = stricter timing required.
+    max_tolerance_short = 0.05, --Max time error (seconds) for peak matching in short clips. Lower = stricter timing required.
     max_tolerance_long = 0.15, --Max time error (seconds) for peak matching in long clips. Lower = stricter timing required.
     -- Penalties
-    missing_peak_penalty_short = 0.3, --Score penalty when an edited peak has no match in clean (short clips). Higher = stricter.
+    missing_peak_penalty_short = 0.8, --Score penalty when an edited peak has no match in clean (short clips). Higher = stricter.
     missing_peak_penalty_long = 0.5, --Score penalty when an edited peak has no match in clean (long clips). Higher = stricter.
-    extra_peak_penalty_short = 0.15, --Score penalty per extra clean peak not in edited (short clips). Higher = penalizes noise more.
+    extra_peak_penalty_short = 0.6, --Score penalty per extra clean peak not in edited (short clips). Higher = penalizes noise more.
     extra_peak_penalty_long = 0.2, --Score penalty per extra clean peak not in edited (long clips). Higher = penalizes noise more.
-    extra_peak_penalty_very_short = 0.05, --Score penalty per extra peak in very short clips (≤2 peaks). Usually kept low.
+    extra_peak_penalty_very_short = 0.8, --Score penalty per extra peak in very short clips (≤2 peaks). Usually kept low.
     envelope_mismatch_penalty = 0.5, --Score penalty when one recording is loud but the other is silent. Higher = stricter.
 
     DOWNSAMPLE_FACTOR = 4,
@@ -77,23 +77,23 @@ local CONFIG = {
     ENVELOPE_CHECK_SAMPLES = 5,
     ENVELOPE_WINDOW_MS = 150,
     ENVELOPE_MISMATCH_THRESHOLD = 0.6,
-    MIN_PEAKS_RATIO_SHORT = 0.7,
+    MIN_PEAKS_RATIO_SHORT = 0.5, -- Minimum ratio of matched peaks to total peaks for short clips
     MIN_PEAKS_RATIO_LONG = 0.5,
-    FILTER_DISTANCE_SHORT = 0.5,
+    FILTER_DISTANCE_SHORT = 1.0,
     FILTER_DISTANCE_LONG = 1.0,
     MAX_LOG_ENTRIES = 50,
     AUDIO_CHUNK_SIZE = 1000000,
-    TOLERANCE_BUFFER_SHORT = 0.2,
+    TOLERANCE_BUFFER_SHORT = 0.05,
     TOLERANCE_BUFFER_LONG = 0.3,
 -- Envelope Detection
     ENVELOPE_SILENCE_THRESHOLD = 0.1,
     ENVELOPE_ACTIVE_THRESHOLD = 0.3,
-    MAX_ENVELOPE_MISMATCH_SHORT = 0.5,
+    MAX_ENVELOPE_MISMATCH_SHORT = 1.0,
     MAX_ENVELOPE_MISMATCH_LONG = 1.0,
 -- Amplitude Weighting
     AMP_WEIGHT_SHORT = 0.3,
     AMP_WEIGHT_LONG = 0.15,
-    POSITION_WEIGHT_SHORT = 1.5,
+    POSITION_WEIGHT_SHORT = 1.2,
     POSITION_WEIGHT_LONG = 1.2,
 -- Speech-to-Text
     STT_TEMP_DIR = (os.getenv("TEMP") or os.getenv("TMP") or "."):gsub("\\", "/"):gsub("//+", "/"):gsub("/$", ""),
@@ -1566,8 +1566,8 @@ function CompareTransientPatterns(clean_transients, edited_transients, clean_env
         score = score + amplitude_bonus
         score = score - (envelope_mismatches * CONFIG.envelope_mismatch_penalty)
 
-        -- Normalize peak score
-        local peak_score = score / #edited_normalized
+        -- Normalize peak score and clamp to 1.0 (position weights + amplitude bonuses can exceed 1.0)
+        local peak_score = math.min(1.0, score / #edited_normalized)
 
         -- Apply minimum score threshold (using peak score only - STT applied later)
         if peak_score > TUNABLE.min_score then
@@ -1592,7 +1592,9 @@ function CompareTransientPatterns(clean_transients, edited_transients, clean_env
     end
 
     local filter_distance = is_short_clip and CONFIG.FILTER_DISTANCE_SHORT or CONFIG.FILTER_DISTANCE_LONG
-    return FilterCloseMatches(matches, filter_distance, TUNABLE.num_match_tracks)
+    -- When STT is enabled, keep more matches for verification (limit applied after STT re-sorting)
+    local max_matches = TUNABLE.stt_enabled and 100 or TUNABLE.num_match_tracks
+    return FilterCloseMatches(matches, filter_distance, max_matches)
 end
 
 function FilterCloseMatches(matches, min_distance, max_results)
@@ -1661,22 +1663,11 @@ function CreateMatchedItem(clean_item, start_time, duration, edited_item, target
             -- Safety checks
             if alignment_offset > 0 and alignment_offset < duration then
                 alignment_applied = true
-                Log(string.format("    Peak alignment: Shifting by %.3fs", alignment_offset), COLORS.GRAY)
             elseif alignment_offset < 0 then
-                Log(string.format("    Peak alignment: Skipped (would extend backwards by %.3fs)", -alignment_offset), COLORS.YELLOW)
                 alignment_offset = 0
             else
-                Log(string.format("    Peak alignment: Skipped (offset %.3fs too large)", alignment_offset), COLORS.YELLOW)
                 alignment_offset = 0
             end
-        else
-            Log("    Peak alignment: Skipped (no peaks in matched region)", COLORS.YELLOW)
-        end
-    else
-        if not edited_peaks or #edited_peaks == 0 then
-            Log("    Peak alignment: Skipped (no peaks in edited item)", COLORS.YELLOW)
-        elseif not clean_peaks or #clean_peaks == 0 then
-            Log("    Peak alignment: Skipped (no peaks in clean item)", COLORS.YELLOW)
         end
     end
 
@@ -2063,6 +2054,9 @@ function ProcessNextStep()
         local edited_peaks, edited_envelope_data, edited_sr = finalize_peak_detection(edited_item)
         -- Store edited peaks for later use in CreateMatchedItem (peak alignment)
         processing_state.edited_peaks = edited_peaks
+        -- Calculate first peak offset (audio content before first peak)
+        local edited_first_peak_offset = (edited_peaks and edited_peaks[1]) and edited_peaks[1].time or 0
+        processing_state.edited_first_peak_offset = edited_first_peak_offset
         local edited_duration = reaper.GetMediaItemInfo_Value(edited_item, "D_LENGTH")
 
         -- Try matching against all clean recordings (peak matching only)
@@ -2131,7 +2125,7 @@ function ProcessNextStep()
         local edited_text = processing_state.edited_stt.text
         local edited_duration = processing_state.stt_edited_duration
 
-        if i <= processing_state.stt_candidates_to_verify then
+        if i <= #all_matches then
             local match = all_matches[i]
             local peak_score = match.debug_info.peak_score
 
@@ -2140,7 +2134,9 @@ function ProcessNextStep()
                 local clean_item = clean_items[match.clean_item_index]
 
                 -- Export the matching region from clean recording
-                local wav_path = ExportItemToWav(clean_item, match.position_time, edited_duration)
+                -- Subtract edited peak offset to capture audio before first peak
+                local clean_export_start = match.position_time - processing_state.edited_first_peak_offset
+                local wav_path = ExportItemToWav(clean_item, clean_export_start, edited_duration)
                 if wav_path then
                     local clean_stt = TranscribeWithEngine(wav_path)
                     os.remove(wav_path)
@@ -2155,19 +2151,38 @@ function ProcessNextStep()
                         match.debug_info.edited_text = edited_text
                         match.debug_info.matched_clean_text = clean_stt.text
 
-                        Log(string.format("    Candidate %d/%d: Peak=%.2f, STT=%.2f -> Combined=%.2f",
+                        Log(string.format("    Match %d (of %d above threshold): Peak=%.2f, STT=%.2f -> Combined=%.2f",
                             i, processing_state.stt_candidates_to_verify, peak_score, stt_score, combined_score), COLORS.GRAY)
                     else
-                        -- STT failed, keep peak score
-                        match.debug_info.stt_score = 0
+                        -- STT failed, recalculate score with stt_score = 0 (penalizes the match)
+                        local stt_score = 0
+                        local combined_score = (peak_score * (1 - TUNABLE.stt_weight)) + (stt_score * TUNABLE.stt_weight)
+                        match.score = combined_score
+                        match.debug_info.stt_score = stt_score
                         match.debug_info.edited_text = edited_text
                         match.debug_info.matched_clean_text = "(STT failed)"
-                        Log(string.format("    Candidate %d/%d: STT failed", i, processing_state.stt_candidates_to_verify), COLORS.YELLOW)
+                        Log(string.format("    Match %d: STT failed, Peak=%.2f -> Combined=%.2f (penalized)",
+                            i, peak_score, combined_score), COLORS.YELLOW)
                     end
+                else
+                    -- WAV export failed, penalize the match
+                    local stt_score = 0
+                    local combined_score = (peak_score * (1 - TUNABLE.stt_weight)) + (stt_score * TUNABLE.stt_weight)
+                    match.score = combined_score
+                    match.debug_info.stt_score = stt_score
+                    match.debug_info.edited_text = edited_text
+                    match.debug_info.matched_clean_text = "(Export failed)"
+                    Log(string.format("    Match %d: WAV export failed, Peak=%.2f -> Combined=%.2f (penalized)",
+                        i, peak_score, combined_score), COLORS.RED)
                 end
             else
-                Log(string.format("    Candidate %d/%d: Peak=%.2f (below threshold)",
-                    i, processing_state.stt_candidates_to_verify, peak_score), COLORS.GRAY)
+                -- Match below threshold, set STT score to 0 and recalculate (penalizes the match)
+                local stt_score = 0
+                local combined_score = (peak_score * (1 - TUNABLE.stt_weight)) + (stt_score * TUNABLE.stt_weight)
+                match.score = combined_score
+                match.debug_info.stt_score = stt_score
+                match.debug_info.edited_text = edited_text
+                match.debug_info.matched_clean_text = "(Below threshold)"
             end
 
             -- Move to next candidate
@@ -2700,12 +2715,12 @@ function Loop()
                     -- STT verification in progress
                     local base_progress = item_base + per_item_audio + per_item_peaks + per_item_match
                     local stt_progress = 0
-                    if processing_state.stt_candidates_to_verify > 0 then
-                        stt_progress = (processing_state.stt_current_candidate / processing_state.stt_candidates_to_verify) * per_item_stt
+                    local total_matches = processing_state.stt_all_matches and #processing_state.stt_all_matches or 1
+                    if total_matches > 0 then
+                        stt_progress = (processing_state.stt_current_candidate / total_matches) * per_item_stt
                     end
                     progress = base_progress + stt_progress
-                    phase_desc = string.format("STT verification %d/%d (%d/%d)",
-                        processing_state.stt_current_candidate,
+                    phase_desc = string.format("STT verification: %d above threshold (%d/%d)",
                         processing_state.stt_candidates_to_verify,
                         processing_state.current_item,
                         total)
