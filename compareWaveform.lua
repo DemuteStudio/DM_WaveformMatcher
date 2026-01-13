@@ -46,7 +46,7 @@ local TOOLTIPS = {
     num_match_tracks = "Number of matched items/tracks to create.",
     min_peak_distance_ms = "Minimum time between peaks in milliseconds. Higher = fewer peaks, ignores rapid articulations.",
     min_score = "Minimum score required to accept match.",
-    stt_enabled = "Enable speech-to-text comparison using Azure. Requires AZUREKEY environment variable.",
+    stt_enabled = "Enable speech-to-text comparison",
     stt_weight = "Balance between peak matching (0) and text matching (1).",
     stt_peak_threshold = "Minimum peak match score required before doing STT verification. Higher = fewer API calls, lower = more thorough.",
     stt_max_duration = "Maximum audio duration (seconds) to transcribe per STT call. Shorter = faster & cheaper. Recommended: 5-15s for voice lines.",
@@ -95,9 +95,9 @@ local CONFIG = {
     AMP_WEIGHT_LONG = 0.15,
     POSITION_WEIGHT_SHORT = 1.5,
     POSITION_WEIGHT_LONG = 1.2,
--- Speech-to-Text (Azure)
+-- Speech-to-Text
     STT_TEMP_DIR = (os.getenv("TEMP") or os.getenv("TMP") or "."):gsub("\\", "/"):gsub("//+", "/"):gsub("/$", ""),
-    STT_SAMPLE_RATE = 16000  -- Azure preferred sample rate
+    STT_SAMPLE_RATE = 16000  -- preferred sample rate
 }
 
 -- STT settings (editable in UI, persisted via ExtState)
@@ -305,6 +305,7 @@ local edited_items = {}
 local clean_items = {}  -- Changed from single item to array
 local report_log = {}
 local is_processing = false
+local cancel_requested = false
 
 -- Progress tracking state
 local processing_state = {
@@ -475,41 +476,6 @@ function ExportItemToWav(item, start_offset, duration)
     reaper.DestroyAudioAccessor(accessor)
     f:close()
     return temp_path
-end
-
--- Parse Azure STT JSON response (simple text output only)
-function ParseAzureResponse(json_str)
-    if not json_str or json_str == "" then
-        return nil
-    end
-
-    local status = json_str:match('"RecognitionStatus"%s*:%s*"([^"]*)"')
-
-    if status ~= "Success" then
-        return nil
-    end
-
-    -- Simple response - just text
-    return {
-        text = (json_str:match('"DisplayText"%s*:%s*"([^"]*)"') or ""):lower(),
-        confidence = tonumber(json_str:match('"Confidence"%s*:%s*([%d%.]+)')) or 0
-    }
-end
-
--- DEPRECATED: Legacy function for backward compatibility
--- Use TranscribeWithEngine() instead for multi-engine support
--- Call Azure Speech-to-Text (now redirects to multi-engine system)
-function TranscribeWithAzure(wav_path)
-    -- Legacy function - redirects to new multi-engine system
-    -- Forces Azure engine regardless of current settings
-    local azure_config = {
-        engine = "azure",
-        azure_key = STT_SETTINGS.azure_key,
-        region = STT_SETTINGS.region,
-        language = STT_SETTINGS.language,
-        python_path = STT_SETTINGS.python_path
-    }
-    return TranscribeWithEngine(wav_path, azure_config)
 end
 
 -- MULTI-ENGINE STT FUNCTIONS
@@ -1873,13 +1839,39 @@ function StartProcessing()
     }
 
     is_processing = true
+    cancel_requested = false  -- Reset cancel flag
     Log(string.format("Starting matching process with %d clean recording(s)...", #clean_items))
     reaper.defer(ProcessNextStep)
+end
+
+-- Cancel the current processing operation
+function CancelProcessing()
+    if not is_processing then
+        return
+    end
+
+    cancel_requested = true
+    Log("Cancelling...", COLORS.YELLOW)
 end
 
 -- Process one step at a time
 function ProcessNextStep()
     if not processing_state.active then
+        return
+    end
+
+    -- Check for cancellation request
+    if cancel_requested then
+        Log("Processing cancelled by user", COLORS.YELLOW)
+        is_processing = false
+        cancel_requested = false
+        processing_state.active = false
+
+        -- Clean up any undo state
+        if processing_state.undo_started then
+            reaper.Undo_EndBlock("Voice Line Matcher (Cancelled)", -1)
+        end
+
         return
     end
 
@@ -2107,11 +2099,20 @@ function ProcessNextStep()
             processing_state.stt_all_matches = all_matches
             processing_state.stt_edited_duration = edited_duration
 
-            -- STT verification for top candidates (if enabled)
+            -- STT verification for all candidates above threshold (if enabled)
             if TUNABLE.stt_enabled and processing_state.edited_stt and processing_state.edited_stt.text ~= "" then
-                processing_state.stt_candidates_to_verify = math.min(TUNABLE.num_match_tracks * 2, #all_matches)
+                -- Count how many matches exceed the STT peak threshold
+                local candidates_above_threshold = 0
+                for _, match in ipairs(all_matches) do
+                    if match.debug_info.peak_score >= TUNABLE.stt_peak_threshold then
+                        candidates_above_threshold = candidates_above_threshold + 1
+                    end
+                end
+
+                processing_state.stt_candidates_to_verify = candidates_above_threshold
                 processing_state.stt_current_candidate = 1
-                Log(string.format("  Verifying top %d matches with STT...", processing_state.stt_candidates_to_verify), COLORS.CYAN)
+                Log(string.format("  Verifying %d matches (peak >= %.2f) with STT...",
+                    processing_state.stt_candidates_to_verify, TUNABLE.stt_peak_threshold), COLORS.CYAN)
                 processing_state.current_phase = "stt_verify"
             else
                 -- No STT, go directly to creating matches
@@ -2289,6 +2290,11 @@ function Loop()
     local visible, open = reaper.ImGui_Begin(ctx, 'Voice Line Matcher', true, reaper.ImGui_WindowFlags_None())
 
     if visible then
+        -- Check for ESC key to cancel processing
+        if is_processing and reaper.ImGui_IsKeyPressed(ctx, reaper.ImGui_Key_Escape()) then
+            CancelProcessing()
+        end
+
         local avail_width = reaper.ImGui_GetContentRegionAvail(ctx)
         local slicerRightSpece = 160
 
@@ -2518,18 +2524,30 @@ function Loop()
         -- ═══════════════════════════════════════════════════════════════════════
 
         local can_match = #edited_items > 0 and #clean_items > 0 and not is_processing
+
+        -- Match Waveforms button (disabled when processing)
         if not can_match then
             reaper.ImGui_BeginDisabled(ctx)
         end
-
-        if reaper.ImGui_Button(ctx, is_processing and "Processing..." or "Match Waveforms", 200, 40) then
+        if reaper.ImGui_Button(ctx, "Match Waveforms", 200, 40) then
             StartProcessing()
         end
         if not can_match then
             reaper.ImGui_EndDisabled(ctx)
         end
 
-        -- Reset to Defaults button
+        -- Cancel button (only shown during processing)
+        if is_processing then
+            reaper.ImGui_SameLine(ctx)
+            if reaper.ImGui_Button(ctx, "Cancel", 100, 40) then
+                CancelProcessing()
+            end
+            if reaper.ImGui_IsItemHovered(ctx) then
+                reaper.ImGui_SetTooltip(ctx, "Cancel the current matching process")
+            end
+        end
+
+        -- Reset to Defaults button (right-aligned)
         reaper.ImGui_SameLine(ctx)
         local cursor_x = reaper.ImGui_GetCursorPosX(ctx)
         local log_avail_width = reaper.ImGui_GetContentRegionAvail(ctx)
