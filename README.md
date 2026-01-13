@@ -19,7 +19,7 @@ When doing remote recordings we record we record remotely  and already do edits 
 6. Click Match Waveforms -> now it will search the clean file for matches to the edited files and copy the best matches below each edited file. You can look at the log at the bottom to see details and potential errors.
 7. When the progress bar has finished check the matches to make sure they are correct.
 
-## Instalation:
+## Installation:
 ---
 Reapack
 1. Download and install Reapack for your platform here(also the user Guide): Reapack Download
@@ -29,7 +29,7 @@ Manual:
 1. Download or clone the repository.
 2. Add compareWaveform.lua as a new action in reaper, if you move it make sure stt_transcribe.py is in the same folder for STT to work.
 
-## STT Setup:
+## STT Setup (Optional) : 
 ---
 **STT Engines Available:**
 - **Google (Free)** - No setup, ~50 requests/day limit
