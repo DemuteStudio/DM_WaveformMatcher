@@ -3,10 +3,18 @@
 
 ![WaveformMatcher](images/WaveformMatcher.png)
 
-The **Waveform matcher** is a tool for reaper to match similar voice recordings from a different media item based on peak detection and Speech-to-text(STT)
+The **Waveform matcher** is a tool for reaper to match similar voice recordings from a different media item based on peak detection and experimental Speech-to-text(STT)
 
 **Why?**
 When doing remote recordings we record we record remotely  and already do edits on it but this recording often has problems like artifacts. so we have to manually find  the part from the clean recording and match it to the edited files. 
+
+**how?**
+For peak detection, we detect peaks in both the clean and the edited items, and then compare the edited peak pattern with the pattern following each peak in the clean file. In addition to comparing the absolute positions of the peaks, we also analyze the relative distances between peaks. This ensures the system still works when there are timing differences, for example due to network latency.
+The peak-to-peak comparison is already very accurate: in about 95% of cases it identifies the correct files, though it sometimes struggles with very short items. For files with a high amount of artifacts, we additionally can apply a experimental feature STT, which should further increases accuracy but will also significantly increases processing time (about …% in our testing).
+
+**Tips:**
+- If a file is not managing to find a match try increasing its length as the peak-to-peak maching can have trouble with short filles
+- Instead of doing STT on all your items do a pass first with only peak matching and then if there are items that didn't get the correct matches try STT
 
 ## How to use the Waveform Matcher
 ---
