@@ -36,6 +36,7 @@ Reapack
 Manual:
 1. Download or clone the repository.
 2. Add compareWaveform.lua as a new action in reaper, if you move it make sure stt_transcribe.py is in the same folder for STT to work.
+3. if you want find different takes of the same line STT could also help.
 
 ## STT Setup (Optional) : 
 ---
