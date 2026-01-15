@@ -21,7 +21,10 @@ local TUNABLE_DEFAULTS = {
     stt_peak_threshold = 0.7,
     stt_max_duration = 10,
     mark_peaks = false,
-    align_peaks = true
+    align_peaks = true,
+    short_edit_threshold = 3.0,
+    edited_extension = 4.0,
+    require_pre_silence = false
 }
 
 local TUNABLE = {
@@ -36,9 +39,14 @@ local TUNABLE = {
     stt_weight = 0.5,  -- 0 = peaks only, 1 = STT only
     stt_peak_threshold = 0.7,  -- Minimum peak score to trigger STT verification
     stt_max_duration = 10,  -- Maximum seconds to transcribe per STT call
+    -- Short Edit Extension (always enabled)
+    short_edit_threshold = 3.0,  -- Extend items shorter than this (seconds)
+    edited_extension = 4.0,  -- Amount to extend before and after (seconds)
     --debug
     mark_peaks = false,  -- Whether to add markers at detected peaks
-    align_peaks = true  -- Align matched items by first peak position
+    align_peaks = true,  -- Align matched items by first peak position
+    -- Pre-silence filter
+    require_pre_silence = false  -- Disqualify matches with peaks before match position
 }
 
 local TOOLTIPS = {
@@ -50,8 +58,11 @@ local TOOLTIPS = {
     stt_weight = "Balance between peak matching (0) and text matching (1).",
     stt_peak_threshold = "Minimum peak match score required before doing STT verification. Higher = fewer API calls, lower = more thorough.",
     stt_max_duration = "Maximum audio duration (seconds) to transcribe per STT call. Shorter = faster & cheaper. Recommended: 5-15s for voice lines.",
+    short_edit_threshold = "Items shorter than this will read extended audio for better matching. Default: 3s.", 
+    edited_extension = "Amount of audio (in seconds) to read before AND after short items. Default: 4 seconds.",
     mark_peaks = "If enabled, adds markers at detected peak positions in the audio items.",
-    align_peaks = "Shift matched audio so first peaks align. Items start at same position but may be trimmed."
+    align_peaks = "Shift matched audio so first peaks align. Items start at same position but may be trimmed.",
+    require_pre_silence = "Disqualify matches that have peaks before the match position (uses the same gap as the edited item's pre-peak silence)."
 }
 
 -- Keep non-tunable config separate
@@ -59,14 +70,14 @@ local CONFIG = {
 
     short_clip_threshold = 20, --Max number of peaks in edited clip to be considered 'short'.
     -- Matching Tolerances
-    max_tolerance_short = 0.05, --Max time error (seconds) for peak matching in short clips. Lower = stricter timing required.
+    max_tolerance_short = 0.03, --Max time error (seconds) for peak matching in short clips. Lower = stricter timing required.
     max_tolerance_long = 0.15, --Max time error (seconds) for peak matching in long clips. Lower = stricter timing required.
     -- Penalties
-    missing_peak_penalty_short = 0.8, --Score penalty when an edited peak has no match in clean (short clips). Higher = stricter.
+    missing_peak_penalty_short = 1.7, --Score penalty when an edited peak has no match in clean (short clips). Higher = stricter.
     missing_peak_penalty_long = 0.5, --Score penalty when an edited peak has no match in clean (long clips). Higher = stricter.
-    extra_peak_penalty_short = 0.6, --Score penalty per extra clean peak not in edited (short clips). Higher = penalizes noise more.
+    extra_peak_penalty_short = 1.5, --Score penalty per extra clean peak not in edited (short clips). Higher = penalizes noise more.
     extra_peak_penalty_long = 0.2, --Score penalty per extra clean peak not in edited (long clips). Higher = penalizes noise more.
-    extra_peak_penalty_very_short = 0.8, --Score penalty per extra peak in very short clips (≤2 peaks). Usually kept low.
+    extra_peak_penalty_very_short = 1.5, --Score penalty per extra peak in very short clips (≤2 peaks). Usually kept low.
     envelope_mismatch_penalty = 0.5, --Score penalty when one recording is loud but the other is silent. Higher = stricter.
 
     DOWNSAMPLE_FACTOR = 4,
@@ -77,23 +88,23 @@ local CONFIG = {
     ENVELOPE_CHECK_SAMPLES = 5,
     ENVELOPE_WINDOW_MS = 150,
     ENVELOPE_MISMATCH_THRESHOLD = 0.6,
-    MIN_PEAKS_RATIO_SHORT = 0.5, -- Minimum ratio of matched peaks to total peaks for short clips
+    MIN_PEAKS_RATIO_SHORT = 0.75, -- Minimum ratio of matched peaks to total peaks for short clips
     MIN_PEAKS_RATIO_LONG = 0.5,
     FILTER_DISTANCE_SHORT = 1.0,
     FILTER_DISTANCE_LONG = 1.0,
     MAX_LOG_ENTRIES = 50,
     AUDIO_CHUNK_SIZE = 1000000,
-    TOLERANCE_BUFFER_SHORT = 0.05,
+    TOLERANCE_BUFFER_SHORT = 0.02,
     TOLERANCE_BUFFER_LONG = 0.3,
 -- Envelope Detection
     ENVELOPE_SILENCE_THRESHOLD = 0.1,
     ENVELOPE_ACTIVE_THRESHOLD = 0.3,
-    MAX_ENVELOPE_MISMATCH_SHORT = 1.0,
+    MAX_ENVELOPE_MISMATCH_SHORT = 0.5,
     MAX_ENVELOPE_MISMATCH_LONG = 1.0,
 -- Amplitude Weighting
-    AMP_WEIGHT_SHORT = 0.3,
+    AMP_WEIGHT_SHORT = 0.4,
     AMP_WEIGHT_LONG = 0.15,
-    POSITION_WEIGHT_SHORT = 1.2,
+    POSITION_WEIGHT_SHORT = 1.5,
     POSITION_WEIGHT_LONG = 1.2,
 -- Speech-to-Text
     STT_TEMP_DIR = (os.getenv("TEMP") or os.getenv("TMP") or "."):gsub("\\", "/"):gsub("//+", "/"):gsub("/$", ""),
@@ -144,6 +155,9 @@ local function LoadSettings()
     local saved_stt_max_duration = reaper.GetExtState(EXT_SECTION, "stt_max_duration")
     local saved_mark_peaks = reaper.GetExtState(EXT_SECTION, "mark_peaks")
     local saved_align_peaks = reaper.GetExtState(EXT_SECTION, "align_peaks")
+    local saved_short_edit_threshold = reaper.GetExtState(EXT_SECTION, "short_edit_threshold")
+    local saved_edited_extension = reaper.GetExtState(EXT_SECTION, "edited_extension")
+    local saved_require_pre_silence = reaper.GetExtState(EXT_SECTION, "require_pre_silence")
 
     -- Use saved values if they exist, otherwise fall back to env var / defaults
     if saved_key ~= "" then
@@ -211,6 +225,15 @@ local function LoadSettings()
     if saved_align_peaks ~= "" then
         TUNABLE.align_peaks = (saved_align_peaks == "true")
     end
+    if saved_short_edit_threshold ~= "" then
+        TUNABLE.short_edit_threshold = tonumber(saved_short_edit_threshold) or TUNABLE.short_edit_threshold
+    end
+    if saved_edited_extension ~= "" then
+        TUNABLE.edited_extension = tonumber(saved_edited_extension) or TUNABLE.edited_extension
+    end
+    if saved_require_pre_silence ~= "" then
+        TUNABLE.require_pre_silence = (saved_require_pre_silence == "true")
+    end
 
     return settings
 end
@@ -247,6 +270,9 @@ local function SaveSettings(settings)
     reaper.SetExtState(EXT_SECTION, "stt_max_duration", tostring(TUNABLE.stt_max_duration), true)
     reaper.SetExtState(EXT_SECTION, "mark_peaks", tostring(TUNABLE.mark_peaks), true)
     reaper.SetExtState(EXT_SECTION, "align_peaks", tostring(TUNABLE.align_peaks), true)
+    reaper.SetExtState(EXT_SECTION, "short_edit_threshold", tostring(TUNABLE.short_edit_threshold), true)
+    reaper.SetExtState(EXT_SECTION, "edited_extension", tostring(TUNABLE.edited_extension), true)
+    reaper.SetExtState(EXT_SECTION, "require_pre_silence", tostring(TUNABLE.require_pre_silence), true)
 end
 
 local STT_SETTINGS = LoadSettings()
@@ -939,7 +965,7 @@ function GetTrack(item)
     return reaper.GetMediaItem_Track(item)
 end
 
-function AddMarkersToItem(item, transients, color)
+function AddMarkersToItem(item, transients, color, pre_extension_offset)
     local take = reaper.GetActiveTake(item)
     if not take then return false, 0 end
 
@@ -950,13 +976,16 @@ function AddMarkersToItem(item, transients, color)
 
     local item_length = reaper.GetMediaItemInfo_Value(item, "D_LENGTH")
     local take_offset = reaper.GetMediaItemTakeInfo_Value(take, "D_STARTOFFS")
+    local offset = pre_extension_offset or 0  -- Offset for extended short edits
 
     local marker_color = color or 0
     local added = 0
 
     for _, transient in ipairs(transients) do
-        if transient.time >= 0 and transient.time <= item_length then
-            if reaper.SetTakeMarker(take, -1, "", take_offset + transient.time, marker_color) >= 0 then
+        -- Adjust transient time relative to original item (subtract pre_extension)
+        local adjusted_time = transient.time - offset
+        if adjusted_time >= 0 and adjusted_time <= item_length then
+            if reaper.SetTakeMarker(take, -1, "", take_offset + adjusted_time, marker_color) >= 0 then
                 added = added + 1
             end
         end
@@ -983,14 +1012,50 @@ function InitAudioLoading(item)
     local item_len = reaper.GetMediaItemInfo_Value(item, "D_LENGTH")
     local take_offset = reaper.GetMediaItemTakeInfo_Value(take, "D_STARTOFFS")
     local num_channels = reaper.GetMediaSourceNumChannels(source)
-    local num_samples = math.floor(item_len * source_sample_rate)
+
+    -- Extend short edits
+    local read_duration = item_len
+    local pre_extension = 0
+    local post_extension = 0
+
+    if item_len < TUNABLE.short_edit_threshold and not TUNABLE.stt_enabled then
+        local extension = TUNABLE.edited_extension  -- User-defined extension amount
+
+        -- Check available source audio before item
+        pre_extension = math.min(extension, take_offset)
+
+        -- Check available source audio after item
+        local source_len, _ = reaper.GetMediaSourceLength(source)
+        local available_after = source_len - (take_offset + item_len)
+        post_extension = math.min(extension, available_after)
+
+        read_duration = pre_extension + item_len + post_extension
+    end
+
+    local num_samples = math.floor(read_duration * source_sample_rate)
 
     -- Validation
     if item_len <= 0 or num_samples <= 0 or num_channels <= 0 then
         return false
     end
 
+    -- For extended short edits, temporarily adjust take offset to include pre-extension audio
+    local original_take_offset = take_offset
+    local original_item_length = item_len
+    if pre_extension > 0 or post_extension > 0 then
+        -- Temporarily adjust take to cover extended region
+        reaper.SetMediaItemTakeInfo_Value(take, "D_STARTOFFS", take_offset - pre_extension)
+        reaper.SetMediaItemInfo_Value(item, "D_LENGTH", read_duration)
+    end
+
     local accessor = reaper.CreateTakeAudioAccessor(take)
+
+    -- Restore original values immediately after creating accessor
+    if pre_extension > 0 or post_extension > 0 then
+        reaper.SetMediaItemTakeInfo_Value(take, "D_STARTOFFS", original_take_offset)
+        reaper.SetMediaItemInfo_Value(item, "D_LENGTH", original_item_length)
+    end
+
     if not accessor then
         return false
     end
@@ -1007,10 +1072,14 @@ function InitAudioLoading(item)
     als.audio = {}
     als.buffer = reaper.new_array(CONFIG.AUDIO_CHUNK_SIZE * num_channels)
     als.progress_percent = 0
-    
+    als.pre_extension = pre_extension
+    als.post_extension = post_extension
+    als.original_duration = item_len
+    als.take_offset = take_offset
+
     processing_state.temp_sr = source_sample_rate
-    processing_state.temp_offset = take_offset
-    
+    processing_state.temp_offset = take_offset - pre_extension  -- Adjust for extension
+
     return true
 end
 
@@ -1028,6 +1097,7 @@ function ProcessAudioLoadingChunk()
     local samples_to_read = math.min(CONFIG.AUDIO_CHUNK_SIZE, als.num_samples - chunk_start)
     als.buffer.clear()
 
+    -- Read from time 0 - the accessor was created with adjusted take offset to include pre-extension
     local start_time = chunk_start / als.source_sample_rate
     reaper.GetAudioAccessorSamples(als.accessor, als.source_sample_rate, als.num_channels, start_time, samples_to_read, als.buffer)
 
@@ -1462,6 +1532,21 @@ function CompareTransientPatterns(clean_transients, edited_transients, clean_env
         local match_start_time = clean_normalized[start_idx].time
         local match_end_time = match_start_time + edited_duration + tolerance_buffer
 
+        -- Check for peaks before match position (pre-silence filter)
+        if TUNABLE.require_pre_silence and edited_start_offset > 0 then
+            local pre_region_start = match_start_time - edited_start_offset
+            local has_pre_peak = false
+            for j = 1, start_idx - 1 do
+                if clean_normalized[j].time >= pre_region_start and clean_normalized[j].time < match_start_time then
+                    has_pre_peak = true
+                    break
+                end
+            end
+            if has_pre_peak then
+                goto continue
+            end
+        end
+
         -- Get all clean peaks within this potential match region
         local clean_peaks_in_region = {}
         for j = start_idx, #clean_normalized do
@@ -1696,6 +1781,26 @@ function CreateMatchedItem(clean_item, start_time, duration, edited_item, target
         end
     end
 
+    -- Trim extended matches back to original length
+    if processing_state.edited_pre_extension and processing_state.edited_pre_extension > 0 then
+        local pre_ext = processing_state.edited_pre_extension
+        local original_dur = processing_state.edited_original_duration
+
+        -- Adjust start position forward
+        local current_pos = reaper.GetMediaItemInfo_Value(new_item, "D_POSITION")
+        reaper.SetMediaItemInfo_Value(new_item, "D_POSITION", current_pos)
+
+        -- Set original duration
+        reaper.SetMediaItemInfo_Value(new_item, "D_LENGTH", original_dur)
+
+        -- Adjust take offset
+        local new_take_obj = reaper.GetActiveTake(new_item)
+        if new_take_obj then
+            local take_off = reaper.GetMediaItemTakeInfo_Value(new_take_obj, "D_STARTOFFS")
+            reaper.SetMediaItemTakeInfo_Value(new_take_obj, "D_STARTOFFS", take_off + pre_ext)
+        end
+    end
+
     reaper.UpdateItemInProject(new_item)
     return new_item
 end
@@ -1776,7 +1881,9 @@ local function finalize_peak_detection(item)
     end
     
     if TUNABLE.mark_peaks then
-        AddMarkersToItem(item, peaks)
+        -- Pass pre_extension offset so markers are placed relative to original item
+        local pre_ext = processing_state.audio_load_state.pre_extension or 0
+        AddMarkersToItem(item, peaks, nil, pre_ext)
     end
     return peaks, envelope_data, processing_state.temp_sr
 end
@@ -2058,6 +2165,15 @@ function ProcessNextStep()
         local edited_first_peak_offset = (edited_peaks and edited_peaks[1]) and edited_peaks[1].time or 0
         processing_state.edited_first_peak_offset = edited_first_peak_offset
         local edited_duration = reaper.GetMediaItemInfo_Value(edited_item, "D_LENGTH")
+        -- Store extension info for trimming matched items later
+        local als = processing_state.audio_load_state
+        processing_state.edited_pre_extension = als.pre_extension or 0
+        processing_state.edited_post_extension = als.post_extension or 0
+        processing_state.edited_original_duration = als.original_duration or edited_duration
+
+        -- Calculate extended duration for creating matched items (will be trimmed back later)
+        local extended_duration = processing_state.edited_pre_extension + edited_duration + processing_state.edited_post_extension
+        processing_state.stt_edited_duration_extended = extended_duration
 
         -- Try matching against all clean recordings (peak matching only)
         local all_matches = {}
@@ -2091,7 +2207,8 @@ function ProcessNextStep()
 
             -- Store matches for potential STT verification
             processing_state.stt_all_matches = all_matches
-            processing_state.stt_edited_duration = edited_duration
+            -- Use extended duration if extension was applied, otherwise original
+            processing_state.stt_edited_duration = processing_state.stt_edited_duration_extended or edited_duration
 
             -- STT verification for all candidates above threshold (if enabled)
             if TUNABLE.stt_enabled and processing_state.edited_stt and processing_state.edited_stt.text ~= "" then
@@ -2124,6 +2241,8 @@ function ProcessNextStep()
         local all_matches = processing_state.stt_all_matches
         local edited_text = processing_state.edited_stt.text
         local edited_duration = processing_state.stt_edited_duration
+        -- Use original duration for STT (not extended duration used for peak matching)
+        local stt_duration = processing_state.edited_original_duration or edited_duration
 
         if i <= #all_matches then
             local match = all_matches[i]
@@ -2134,9 +2253,13 @@ function ProcessNextStep()
                 local clean_item = clean_items[match.clean_item_index]
 
                 -- Export the matching region from clean recording
-                -- Subtract edited peak offset to capture audio before first peak
-                local clean_export_start = match.position_time - processing_state.edited_first_peak_offset
-                local wav_path = ExportItemToWav(clean_item, clean_export_start, edited_duration)
+                -- match.time = where extended audio starts in clean (already adjusted for first peak)
+                -- Add pre_ext to get to where the ORIGINAL item starts
+                -- Subtract first_peak_in_original to capture audio before first peak in original item
+                local pre_ext = processing_state.edited_pre_extension or 0
+                local first_peak_in_original = math.max(0, processing_state.edited_first_peak_offset - pre_ext)
+                local clean_export_start = match.time + pre_ext - first_peak_in_original
+                local wav_path = ExportItemToWav(clean_item, clean_export_start, stt_duration)
                 if wav_path then
                     local clean_stt = TranscribeWithEngine(wav_path)
                     os.remove(wav_path)
@@ -2520,6 +2643,41 @@ function Loop()
             end
             if reaper.ImGui_IsItemHovered(ctx) then
                 reaper.ImGui_SetTooltip(ctx, TOOLTIPS.align_peaks)
+            end
+
+            local preSilence_changed, preSilence_enabled = reaper.ImGui_Checkbox(ctx, "Require Pre-Silence", TUNABLE.require_pre_silence)
+            if preSilence_changed then
+                TUNABLE.require_pre_silence = preSilence_enabled
+                SaveSettings(STT_SETTINGS)
+            end
+            if reaper.ImGui_IsItemHovered(ctx) then
+                reaper.ImGui_SetTooltip(ctx, TOOLTIPS.require_pre_silence)
+            end
+
+            reaper.ImGui_Spacing(ctx)
+            reaper.ImGui_Separator(ctx)
+            reaper.ImGui_Spacing(ctx)
+
+            -- Short Edit Extension settings
+            reaper.ImGui_Text(ctx, "Short Edit Extension:")
+            reaper.ImGui_SetNextItemWidth(ctx, avail_width - slicerRightSpece)
+            local thresh_changed, new_thresh = reaper.ImGui_SliderDouble(ctx, "Threshold (s)", TUNABLE.short_edit_threshold, 1.0, 30.0, "%.1f")
+            if thresh_changed then
+                TUNABLE.short_edit_threshold = new_thresh
+                SaveSettings(STT_SETTINGS)
+            end
+            if reaper.ImGui_IsItemHovered(ctx) then
+                reaper.ImGui_SetTooltip(ctx, TOOLTIPS.short_edit_threshold)
+            end
+
+            reaper.ImGui_SetNextItemWidth(ctx, avail_width - slicerRightSpece)
+            local ext_amt_changed, new_ext_amt = reaper.ImGui_SliderDouble(ctx, "Extension (s)", TUNABLE.edited_extension, 0.5, 10.0, "%.1f")
+            if ext_amt_changed then
+                TUNABLE.edited_extension = new_ext_amt
+                SaveSettings(STT_SETTINGS)
+            end
+            if reaper.ImGui_IsItemHovered(ctx) then
+                reaper.ImGui_SetTooltip(ctx, TOOLTIPS.edited_extension)
             end
 
             reaper.ImGui_Spacing(ctx)
