@@ -3,7 +3,7 @@
 
 ![WaveformMatcher](images/WaveformMatcher.png)
 
-The **Waveform matcher** is a tool for reaper to match similar voice recordings from a different media item based on peak detection and experimental Speech-to-text(STT)
+The **Waveform matcher** is a tool for reaper to match similar voice recordings from a different media item based on peak detection.
 
 **Why?**
 When doing remote recordings we record we record remotely  and already do edits on it but this recording often has problems like artifacts. so we have to manually find  the part from the clean recording and match it to the edited files. 
