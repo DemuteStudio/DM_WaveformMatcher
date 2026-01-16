@@ -26,6 +26,23 @@ local is_processing = false
 local cancel_requested = false
 local window_first_open = true
 
+-- logo
+local logo_image = nil
+local logo_width = 0
+local logo_height = 0
+
+-- Load logo (call once during initialization)
+local function LoadLogo()
+    local logo_path = script_path .. "Demute_Home_Logo.png"  -- Or wherever your logo is
+    logo_image = reaper.ImGui_CreateImage(logo_path)
+    if logo_image then
+        logo_width, logo_height = reaper.ImGui_Image_GetSize(logo_image)
+    end
+end
+
+-- Call after creating context
+LoadLogo()
+
 -- UI Style constants
 local UI = {
     BUTTON_WIDTH = 180,
@@ -658,6 +675,7 @@ function Loop()
         -- ═══════════════════════════════════════════════════════════════════════
         -- SECTION: Input Selection
         -- ═══════════════════════════════════════════════════════════════════════
+
         reaper.ImGui_SetNextItemOpen(ctx, true, reaper.ImGui_Cond_Once())
         if reaper.ImGui_CollapsingHeader(ctx, "Input Selection") then
             reaper.ImGui_Spacing(ctx)
@@ -926,9 +944,6 @@ function Loop()
             reaper.ImGui_SetTooltip(ctx, "Reset all settings to their default values")
         end
 
-
-
-
         -- Progress bar
         if is_processing and processing_state.active then
             reaper.ImGui_Spacing(ctx)
@@ -1120,10 +1135,27 @@ function Loop()
         local log_width, log_height = reaper.ImGui_GetContentRegionAvail(ctx)
         log_height = math.max(log_height, 100)
 
+        -- logo size calculation
+        local avail = reaper.ImGui_GetContentRegionAvail(ctx)
+        local logo_display_width = 100  -- Adjust size as needed
+        local logo_display_height = logo_display_width * (logo_height / logo_width)
+
         -- Use InputTextMultiline with ReadOnly flag for selectable/copyable text
-        reaper.ImGui_InputTextMultiline(ctx, "##log", log_text, log_width, log_height,
+        reaper.ImGui_InputTextMultiline(ctx, "##log", log_text, log_width, log_height - logo_display_height,
             reaper.ImGui_InputTextFlags_ReadOnly())
 
+        -- ═══════════════════════════════════════════════════════════════════════
+        -- SECTION: Logo
+        -- ═══════════════════════════════════════════════════════════════════════
+
+        if logo_image then
+
+            
+            reaper.ImGui_SetCursorPosX(ctx, (avail - logo_display_width) / 2)
+            reaper.ImGui_Image(ctx, logo_image, logo_display_width, logo_display_height)
+            reaper.ImGui_Spacing(ctx)
+            reaper.ImGui_Separator(ctx)
+        end
         reaper.ImGui_End(ctx)
     end
 
