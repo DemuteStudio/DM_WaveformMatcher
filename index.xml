@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<index version="1" name="Demute Studio - Waveform Matcher" commit="https://github.com/DemuteStudio/Waveform-Matcher/commits/main">
+  <category name="Audio">
+    <reapack name="Scripts/WaveformMatcher.lua" type="script" desc="Waveform Matcher - Match edited clips to clean recordings using peak detection">
+      <metadata>
+        <description><![CDATA[{\rtf1\ansi\deff0{\fonttbl{\f0 \fswiss Helvetica;}{\f1 Courier;}}
+          {\colortbl;\red255\green0\blue0;\red0\green0\blue255;}
+          \widowctrl\hyphauto
+          {\pard \ql \f0 \sa180 \li0 \fi0 The Waveform Matcher analyzes a media item and automatically finds the same or similar audio segments in another media item using peak detection.\par}
+          }]]>
+        </description>
+        <link rel="website">https://github.com/DemuteStudio/Waveform-Matcher</link>
+      </metadata>
+      <version name="0.1.0-beta" author="Demute Studio" time="2026-01-16T00:00:00Z">
+        <changelog><![CDATA[Initial release:
+          - Peak-based waveform matching]]>
+        </changelog>
+        <source main="main">https://raw.githubusercontent.com/DemuteStudio/Waveform-Matcher/main/Scripts/WaveformMatcher.lua</source>
+        <source file="Scripts/Modules/config.lua">https://raw.githubusercontent.com/DemuteStudio/Waveform-Matcher/main/Scripts/Modules/config.lua</source>
+        <source file="Scripts/Modules/helpers.lua">https://raw.githubusercontent.com/DemuteStudio/Waveform-Matcher/main/Scripts/Modules/helpers.lua</source>
+        <source file="Scripts/Modules/audio.lua">https://raw.githubusercontent.com/DemuteStudio/Waveform-Matcher/main/Scripts/Modules/audio.lua</source>
+        <source file="Scripts/Modules/peaks.lua">https://raw.githubusercontent.com/DemuteStudio/Waveform-Matcher/main/Scripts/Modules/peaks.lua</source>
+        <source file="Scripts/Modules/matching.lua">https://raw.githubusercontent.com/DemuteStudio/Waveform-Matcher/main/Scripts/Modules/matching.lua</source>
+        <source file="Scripts/Modules/stt.lua">https://raw.githubusercontent.com/DemuteStudio/Waveform-Matcher/main/Scripts/Modules/stt.lua</source>
+        <source file="Scripts/Modules/stt_transcribe.py">https://raw.githubusercontent.com/DemuteStudio/Waveform-Matcher/main/Scripts/Modules/stt_transcribe.py</source>
+        <source file="images/Demute_Home_Logo.png">https://raw.githubusercontent.com/DemuteStudio/Waveform-Matcher/main/images/Demute_Home_Logo.png</source>
+      </version>
+    </reapack>
+  </category>
+  <metadata>
+    <description><![CDATA[Waveform Matcher]]></description>
+    <link rel="website">https://github.com/DemuteStudio/Waveform-Matcher</link>
+  </metadata>
+</index>
