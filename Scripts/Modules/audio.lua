@@ -24,7 +24,7 @@ function InitAudioLoading(item)
     local pre_extension = 0
     local post_extension = 0
 
-    if item_len < TUNABLE.short_edit_threshold and not TUNABLE.stt_enabled then
+    if item_len < TUNABLE.short_edit_threshold and not TUNABLE.stt_enabled and TUNABLE.extend_short_edits then
         local extension = TUNABLE.edited_extension  -- User-defined extension amount
 
         -- Check available source audio before item

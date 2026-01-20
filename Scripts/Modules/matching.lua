@@ -342,7 +342,8 @@ function CreateMatchedItem(clean_item, start_time, duration, edited_item, target
     end
 
     -- Trim extended matches back to original length
-    if processing_state.edited_pre_extension and processing_state.edited_pre_extension > 0 then
+    if processing_state.edited_pre_extension and processing_state.edited_pre_extension > 0 or
+    processing_state.edited_post_extension and processing_state.edited_post_extension > 0 then
         local pre_ext = processing_state.edited_pre_extension
         local original_dur = processing_state.edited_original_duration
 

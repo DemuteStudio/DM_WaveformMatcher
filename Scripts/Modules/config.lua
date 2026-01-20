@@ -13,6 +13,7 @@ TUNABLE_DEFAULTS = {
     stt_max_duration = 10,
     mark_peaks = false,
     align_peaks = true,
+    extend_short_edits = true,
     short_edit_threshold = 3.0,
     edited_extension = 4.0,
     require_pre_silence = false
@@ -31,6 +32,7 @@ TUNABLE = {
     stt_peak_threshold = 0.7,  -- Minimum peak score to trigger STT verification
     stt_max_duration = 10,  -- Maximum seconds to transcribe per STT call
     -- Short Edit Extension (always enabled)
+    extend_short_edits = true,
     short_edit_threshold = 3.0,  -- Extend items shorter than this (seconds)
     edited_extension = 4.0,  -- Amount to extend before and after (seconds)
     --debug
@@ -49,6 +51,7 @@ TOOLTIPS = {
     stt_weight = "Balance between peak matching (0) and text matching (1).",
     stt_peak_threshold = "Minimum peak match score required before doing STT verification. Higher = fewer API calls, lower = more thorough.",
     stt_max_duration = "Maximum audio duration (seconds) to transcribe per STT call. Shorter = faster & cheaper. Recommended: 5-15s for voice lines.",
+    extend_short_edits = "Extend short edited items for better matching.",
     short_edit_threshold = "Items shorter than this will read extended audio for better matching. Default: 3s.",
     edited_extension = "Amount of audio (in seconds) to read before AND after short items. Default: 4 seconds.",
     mark_peaks = "If enabled, adds markers at detected peak positions in the audio items.",
@@ -197,7 +200,7 @@ function LoadSettings()
     local saved_min_peak_distance_ms = reaper.GetExtState(EXT_SECTION, "min_peak_distance_ms")
     local saved_num_match_tracks = reaper.GetExtState(EXT_SECTION, "num_match_tracks")
     local saved_min_score = reaper.GetExtState(EXT_SECTION, "min_score")
-    local saved_stt_enabled = reaper.GetExtState(EXT_SECTION, "stt_enabled")
+    local saved_stt_enabled = false
     local saved_stt_weight = reaper.GetExtState(EXT_SECTION, "stt_weight")
     local saved_stt_peak_threshold = reaper.GetExtState(EXT_SECTION, "stt_peak_threshold")
     local saved_stt_max_duration = reaper.GetExtState(EXT_SECTION, "stt_max_duration")

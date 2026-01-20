@@ -10,12 +10,12 @@ end
 
 -- Load modules
 local script_path = debug.getinfo(1, "S").source:match("@?(.*[\\/])")
-dofile(script_path .. "Scripts/config.lua")
-dofile(script_path .. "Scripts/helpers.lua")
-dofile(script_path .. "Scripts/audio.lua")
-dofile(script_path .. "Scripts/peaks.lua")
-dofile(script_path .. "Scripts/matching.lua")
-dofile(script_path .. "Scripts/stt.lua")
+dofile(script_path .. "Modules/config.lua")
+dofile(script_path .. "Modules/helpers.lua")
+dofile(script_path .. "Modules/audio.lua")
+dofile(script_path .. "Modules/peaks.lua")
+dofile(script_path .. "Modules/matching.lua")
+dofile(script_path .. "Modules/stt.lua")
 
 -- LOCAL STATE
 
@@ -33,7 +33,7 @@ local logo_height = 0
 
 -- Load logo (call once during initialization)
 local function LoadLogo()
-    local logo_path = script_path .. "Demute_Home_Logo.png"  -- Or wherever your logo is
+    local logo_path = script_path .. "../images/Demute_Home_Logo.png"  -- Or wherever your logo is
     logo_image = reaper.ImGui_CreateImage(logo_path)
     if logo_image then
         logo_width, logo_height = reaper.ImGui_Image_GetSize(logo_image)
