@@ -76,7 +76,7 @@ The tool is quite resiliant against Network Latency, artifacts and background no
 ## Installation:
 ---
 Reapack
-1. Download and install Reapack for your platform here(also the user Guide): Reapack Download
+1. Download and install Reapack for your platform here(also the user Guide): [Reapack Download](https://reapack.com/user-guide#installation)
 2. go to Extensions->Reapack->Import Repositories paste the following link: Comming soon
 
 Manual:
