@@ -11,7 +11,7 @@
         </description>
         <link rel="website">https://github.com/DemuteStudio/Waveform-Matcher</link>
       </metadata>
-      <version name="0.1.0-beta" author="Demute Studio" time="2026-01-16T00:00:00Z">
+      <version name="0.1.0-beta" author="Demute" time="2026-01-16T00:00:00Z">
         <changelog><![CDATA[Initial release:
           - Peak-based waveform matching]]>
         </changelog>
