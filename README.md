@@ -43,7 +43,7 @@ The tool is quite resiliant against Network Latency, artifacts and background no
 ### Limitations
 
 - **Very short clips** without extra source content may not have enough peaks for reliable matching
-- **Edited audio** with rearranged word order won't match correctly
+- **Edited audio** with rearranged glued audio won't match correctly
 - **Multiple very similar takes** may cause ambiguous matches - review results manually
 
 **Tips:**
