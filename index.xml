@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<index version="1" name="DM Waveform Matcher" commit="https://github.com/DemuteStudio/Waveform-Matcher/commits/main">
+<index version="1" name="DM Waveform Matcher">
   <category name="Audio">
     <reapack name="WaveformMatcher" type="script" desc="Waveform Matcher - Match edited clips to clean recordings using peak detection">
       <metadata>
@@ -15,7 +15,7 @@
         <changelog><![CDATA[Initial release:
           - Peak-based waveform matching]]>
         </changelog>
-        <source main="main">https://raw.githubusercontent.com/DemuteStudio/Waveform-Matcher/main/Scripts/WaveformMatcher.lua</source>
+        <source main="true">https://raw.githubusercontent.com/DemuteStudio/Waveform-Matcher/main/Scripts/WaveformMatcher.lua</source>
         <source file="Scripts/Modules/config.lua">https://raw.githubusercontent.com/DemuteStudio/Waveform-Matcher/main/Scripts/Modules/config.lua</source>
         <source file="Scripts/Modules/helpers.lua">https://raw.githubusercontent.com/DemuteStudio/Waveform-Matcher/main/Scripts/Modules/helpers.lua</source>
         <source file="Scripts/Modules/audio.lua">https://raw.githubusercontent.com/DemuteStudio/Waveform-Matcher/main/Scripts/Modules/audio.lua</source>
