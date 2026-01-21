@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
-<index version="1" name="DM Waveform Matcher">
-  <!-- MAIN SCRIPT  -->
+<index version="1" name="DM Waveform Matcher" commit="94fdbf1">
+  <!-- MAIN SCRIPT -->
   <category name="Scripts">
     <reapack name="WaveformMatcher.lua" type="script" desc="Match edited clips to clean recordings using peak detection">
       <version name="0.1.0-beta" author="Demute Studio" time="2026-01-16T00:00:00Z">
         <source main="true">
-          https://raw.githubusercontent.com/DemuteStudio/Waveform-Matcher/main/Scripts/WaveformMatcher.lua
+          https://github.com/DemuteStudio/Waveform-Matcher/raw/94fdbf1/Scripts/WaveformMatcher.lua
         </source>
       </version>
     </reapack>
@@ -16,22 +16,22 @@
       <category>Library</category>
       <version name="0.1.0-beta" author="Demute Studio" time="2026-01-16T00:00:00Z">
         <source file="WaveformMatcher/Modules/config.lua">
-          https://raw.githubusercontent.com/DemuteStudio/Waveform-Matcher/main/Scripts/Modules/config.lua
+          https://github.com/DemuteStudio/Waveform-Matcher/raw/94fdbf1/Scripts/Modules/config.lua
         </source>
         <source file="WaveformMatcher/Modules/helpers.lua">
-          https://raw.githubusercontent.com/DemuteStudio/Waveform-Matcher/main/Scripts/Modules/helpers.lua
+          https://github.com/DemuteStudio/Waveform-Matcher/raw/94fdbf1/Scripts/Modules/helpers.lua
         </source>
         <source file="WaveformMatcher/Modules/audio.lua">
-          https://raw.githubusercontent.com/DemuteStudio/Waveform-Matcher/main/Scripts/Modules/audio.lua
+          https://github.com/DemuteStudio/Waveform-Matcher/raw/94fdbf1/Scripts/Modules/audio.lua
         </source>
         <source file="WaveformMatcher/Modules/peaks.lua">
-          https://raw.githubusercontent.com/DemuteStudio/Waveform-Matcher/main/Scripts/Modules/peaks.lua
+          https://github.com/DemuteStudio/Waveform-Matcher/raw/94fdbf1/Scripts/Modules/peaks.lua
         </source>
         <source file="WaveformMatcher/Modules/matching.lua">
-          https://raw.githubusercontent.com/DemuteStudio/Waveform-Matcher/main/Scripts/Modules/matching.lua
+          https://github.com/DemuteStudio/Waveform-Matcher/raw/94fdbf1/Scripts/Modules/matching.lua
         </source>
         <source file="WaveformMatcher/Modules/stt.lua">
-          https://raw.githubusercontent.com/DemuteStudio/Waveform-Matcher/main/Scripts/Modules/stt.lua
+          https://github.com/DemuteStudio/Waveform-Matcher/raw/94fdbf1/Scripts/Modules/stt.lua
         </source>
       </version>
     </reapack>
@@ -41,7 +41,7 @@
     <reapack name="WaveformMatcher_STT.py" type="script" desc="Speech-to-text helper for Waveform Matcher">
       <version name="0.1.0-beta" author="Demute Studio" time="2026-01-16T00:00:00Z">
         <source main="true">
-          https://raw.githubusercontent.com/DemuteStudio/Waveform-Matcher/main/Scripts/Modules/stt_transcribe.py
+          https://github.com/DemuteStudio/Waveform-Matcher/raw/94fdbf1/Scripts/Modules/stt_transcribe.py
         </source>
       </version>
     </reapack>
@@ -54,5 +54,5 @@ in another media item using peak detection.
 ]]></description>
     <link rel="website">https://github.com/DemuteStudio/Waveform-Matcher</link>
   </metadata>
-
 </index>
+
