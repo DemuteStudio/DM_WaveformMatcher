@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <index version="1" name="DM Waveform Matcher">
-  <category name="Audio">
+  <category name="Scripts">
     <reapack name="WaveformMatcher.lua" type="script" desc="Waveform Matcher - Match edited clips to clean recordings using peak detection">
       <metadata>
         <description><![CDATA[{\rtf1\ansi\deff0{\fonttbl{\f0 \fswiss Helvetica;}{\f1 Courier;}}
