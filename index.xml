@@ -1,10 +1,31 @@
 <?xml version="1.0" encoding="utf-8"?>
-<index version="1" name="Test Waveform-Matcher">
+<index version="1" name="Waveform-Matcher">
+
   <category name="Scripts">
     <reapack name="WaveformMatcher.lua" type="script">
-      <version name="0.1.0" author="Demute Studio">
+      <version name="0.1.0-beta" author="Demute Studio">
         <source main="main">https://raw.githubusercontent.com/DemuteStudio/Waveform-Matcher/main/Scripts/WaveformMatcher.lua</source>
       </version>
     </reapack>
+
+    <reapack name="WaveformMatcher_Library" type="script">
+      <category>Library</category>
+      <version name="0.1.0-beta" author="Demute Studio">
+        <source file="Modules/config.lua">https://raw.githubusercontent.com/DemuteStudio/Waveform-Matcher/main/Scripts/Modules/config.lua</source>
+        <source file="Modules/helpers.lua">https://raw.githubusercontent.com/DemuteStudio/Waveform-Matcher/main/Scripts/Modules/helpers.lua</source>
+        <source file="Modules/audio.lua">https://raw.githubusercontent.com/DemuteStudio/Waveform-Matcher/main/Scripts/Modules/audio.lua</source>
+        <source file="Modules/peaks.lua">https://raw.githubusercontent.com/DemuteStudio/Waveform-Matcher/main/Scripts/Modules/peaks.lua</source>
+        <source file="Modules/matching.lua">https://raw.githubusercontent.com/DemuteStudio/Waveform-Matcher/main/Scripts/Modules/matching.lua</source>
+        <source file="Modules/stt.lua">https://raw.githubusercontent.com/DemuteStudio/Waveform-Matcher/main/Scripts/Modules/stt.lua</source>
+      </version>
+    </reapack>
+
+    <reapack name="WaveformMatcher_STT.py" type="script">
+      <version name="0.1.0-beta" author="Demute Studio">
+        <source main="main">https://raw.githubusercontent.com/DemuteStudio/Waveform-Matcher/main/Scripts/Modules/stt_transcribe.py</source>
+      </version>
+    </reapack>
   </category>
+
 </index>
+
