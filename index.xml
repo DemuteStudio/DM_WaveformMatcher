@@ -16,5 +16,10 @@
         <source file="Modules/stt.lua">https://raw.githubusercontent.com/DemuteStudio/Waveform-Matcher/main/Scripts/Modules/stt.lua</source>
       </version>
     </reapack>
+    <reapack name="WaveformMatcher_STT.py" type="script">
+      <version name="0.1.0" author="Demute">
+        <source file="Modules/stt_transcribe.py">https://raw.githubusercontent.com/DemuteStudio/Waveform-Matcher/main/Scripts/Modules/stt_transcribe.py</source>
+      </version>
+    </reapack>
   </category>
 </index>
