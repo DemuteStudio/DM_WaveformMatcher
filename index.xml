@@ -21,9 +21,11 @@
         <source file="Modules/stt_transcribe.py">https://raw.githubusercontent.com/DemuteStudio/Waveform-Matcher/main/Scripts/Modules/stt_transcribe.py</source>
       </version>
     </reapack>
+  </category>
+  <category name="images">
     <reapack name="Demute_Home_Logo.png" type="script">
       <version name="0.1.0" author="Demute">
-        <source file="images/Demute_Home_Logo.png">https://raw.githubusercontent.com/DemuteStudio/Waveform-Matcher/main/images/Demute_Home_Logo.png</source>
+        <source file="Demute_Home_Logo.png">https://raw.githubusercontent.com/DemuteStudio/Waveform-Matcher/main/images/Demute_Home_Logo.png</source>
       </version>
     </reapack>
   </category>
