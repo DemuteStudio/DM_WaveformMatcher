@@ -3,8 +3,7 @@
   <category name="Scripts">
     <reapack name="WaveformMatcher.lua" type="script">
       <version name="0.1.0" author="Demute Studio">
-        <source main="true">
-          https://github.com/DemuteStudio/Waveform-Matcher/raw/94fdbf1/Scripts/WaveformMatcher.lua
+        <source main="true">https://github.com/DemuteStudio/Waveform-Matcher/raw/94fdbf1/Scripts/WaveformMatcher.lua</source>
         </source>
       </version>
     </reapack>
