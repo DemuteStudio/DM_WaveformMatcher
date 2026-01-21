@@ -8,7 +8,7 @@ The **Waveform Matcher** is a REAPER tool that automatically matches similar voi
 ## Why Use This Tool?
 
 When doing remote voice recording (e.g., via SessionLink), you may work with two versions of the same audio:
-- **Remote recording** - already edited but contains artifacts, compression, or quality issues
+- **Remote recording** - already edited during the recording session but contains artifacts, compression, or quality issues
 - **Clean local recording** - Long uninterupted voice recording, high quality but unedited recorded localy by the voice actor.
 
 Manually finding and matching each edited segment in the clean recording is time-consuming and error-prone. The Waveform Matcher automates this process, saving hours of work.
