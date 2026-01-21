@@ -327,6 +327,14 @@ function CreateMatchedItem(clean_item, start_time, duration, edited_item, target
         alignment_applied and "Matched (aligned)" or "Matched", true)
     reaper.SetActiveTake(new_take)
 
+    -- Copy take FX from clean item to matched item
+    local fx_count = reaper.TakeFX_GetCount(clean_take)
+    if fx_count > 0 then
+        for i = 0, fx_count - 1 do
+            reaper.TakeFX_CopyToTake(clean_take, i, new_take, -1, false)
+        end
+    end
+
     -- Copy markers from clean item (adjusted for the match position and alignment)
     local markers_copied = 0
     local adjusted_start = absolute_start_time + alignment_offset
