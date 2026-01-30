@@ -19,7 +19,7 @@ dofile(script_path .. "Modules/stt.lua")
 
 -- LOCAL STATE
 
-local ctx = reaper.ImGui_CreateContext('Voice Line Matcher')
+local ctx = reaper.ImGui_CreateContext('Waveform Matcher')
 local edited_items = {}
 local clean_items = {}
 local is_processing = false
@@ -215,7 +215,7 @@ function ProcessNextStep()
 
         -- Clean up any undo state
         if processing_state.undo_started then
-            reaper.Undo_EndBlock("Voice Line Matcher (Cancelled)", -1)
+            reaper.Undo_EndBlock("Waveform Matcher (Cancelled)", -1)
         end
 
         return
@@ -657,11 +657,15 @@ end
 function Loop()
     -- Set initial window size on first open
     if window_first_open then
-        reaper.ImGui_SetNextWindowSize(ctx, 450, 650, reaper.ImGui_Cond_FirstUseEver())
+        reaper.ImGui_SetNextWindowSize(ctx, 500, 650, reaper.ImGui_Cond_FirstUseEver())
         window_first_open = false
     end
 
-    local visible, open = reaper.ImGui_Begin(ctx, 'Voice Line Matcher', true, reaper.ImGui_WindowFlags_None())
+    -- Set minimum window size to prevent button overlap
+    -- Match Waveforms (200) + Cancel (100) + Reset Settings (150) + spacing/padding (~50) = 500
+    reaper.ImGui_SetNextWindowSizeConstraints(ctx, 500, 400, math.huge, math.huge)
+
+    local visible, open = reaper.ImGui_Begin(ctx, 'Waveform Matcher', true, reaper.ImGui_WindowFlags_None())
 
     if visible then
         -- Check for ESC key to cancel processing
@@ -1166,7 +1170,7 @@ end
 
 -- INITIALIZATION
 
-Log("Voice Line Matcher v2.0")
+Log("Waveform Matcher v1.0")
 Log("Load edited items and clean recording(s), then click Match.")
 
 reaper.defer(Loop)
