@@ -2,12 +2,12 @@
 <index version="1" name="Waveform-Matcher">
   <category name="Scripts">
     <reapack name="WaveformMatcher.lua" type="script">
-      <version name="0.1.0" author="Demute">
+      <version name="0.2.0" author="Demute">
         <source main="main">https://raw.githubusercontent.com/DemuteStudio/Waveform-Matcher/main/Scripts/WaveformMatcher.lua</source>
       </version>
     </reapack>
     <reapack name="WaveformMatcher_Library" type="script">
-      <version name="0.1.0" author="Demute">
+      <version name="0.2.0" author="Demute">
         <source file="Modules/config.lua">https://raw.githubusercontent.com/DemuteStudio/Waveform-Matcher/main/Scripts/Modules/config.lua</source>
         <source file="Modules/helpers.lua">https://raw.githubusercontent.com/DemuteStudio/Waveform-Matcher/main/Scripts/Modules/helpers.lua</source>
         <source file="Modules/audio.lua">https://raw.githubusercontent.com/DemuteStudio/Waveform-Matcher/main/Scripts/Modules/audio.lua</source>
@@ -17,14 +17,14 @@
       </version>
     </reapack>
     <reapack name="WaveformMatcher_STT.py" type="script">
-      <version name="0.1.0" author="Demute">
+      <version name="0.2.0" author="Demute">
         <source file="Modules/stt_transcribe.py">https://raw.githubusercontent.com/DemuteStudio/Waveform-Matcher/main/Scripts/Modules/stt_transcribe.py</source>
       </version>
     </reapack>
   </category>
   <category name="images">
     <reapack name="Demute_Home_Logo.png" type="script">
-      <version name="0.1.0" author="Demute">
+      <version name="0.2.0" author="Demute">
         <source file="Demute_Home_Logo.png">https://raw.githubusercontent.com/DemuteStudio/Waveform-Matcher/main/images/Demute_Home_Logo.png</source>
       </version>
     </reapack>
