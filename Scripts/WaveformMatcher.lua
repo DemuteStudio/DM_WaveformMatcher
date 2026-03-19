@@ -8,8 +8,17 @@ if not reaper.ImGui_GetVersion then
     return
 end
 
--- Load modules
+-- Load Common shared libraries
 local script_path = debug.getinfo(1, "S").source:match("@?(.*[\\/])")
+local DEMUTE_ROOT = script_path:match("^(.*[/\\])[^/\\]+[/\\][^/\\]+[/\\]$")
+local COMMON      = DEMUTE_ROOT .. "Common/Scripts/"
+dofile(COMMON .. "DM_Colors.lua")
+dofile(COMMON .. "DM_ImageUtils.lua")
+dofile(COMMON .. "DM_StringUtils.lua")
+dofile(COMMON .. "DM_Theme.lua")
+DM = dofile(COMMON .. "DM_Library.lua")
+
+-- Load modules
 dofile(script_path .. "Modules/config.lua")
 dofile(script_path .. "Modules/helpers.lua")
 dofile(script_path .. "Modules/audio.lua")
@@ -19,7 +28,10 @@ dofile(script_path .. "Modules/stt.lua")
 
 -- LOCAL STATE
 
-local ctx = reaper.ImGui_CreateContext('Waveform Matcher')
+local ctx     = reaper.ImGui_CreateContext('Waveform Matcher')
+local font_ui = reaper.ImGui_CreateFont("sans-serif", Theme.FONT_SIZE)
+reaper.ImGui_Attach(ctx, font_ui)
+
 local edited_items = {}
 local clean_items = {}
 local is_processing = false
@@ -27,21 +39,9 @@ local cancel_requested = false
 local window_first_open = true
 
 -- logo
-local logo_image = nil
-local logo_width = 0
-local logo_height = 0
-
--- Load logo (call once during initialization)
-local function LoadLogo()
-    local logo_path = script_path .. "../images/Demute_Home_Logo.png"  -- Or wherever your logo is
-    logo_image = reaper.ImGui_CreateImage(logo_path)
-    if logo_image then
-        logo_width, logo_height = reaper.ImGui_Image_GetSize(logo_image)
-    end
-end
-
--- Call after creating context
-LoadLogo()
+local logo_image, logo_width, logo_height = LoadDemuteLogo()
+logo_width  = logo_width  or 0
+logo_height = logo_height or 0
 
 -- UI Style constants
 local UI = {
@@ -64,12 +64,12 @@ function SelectEditedFiles()
     end
 
     -- Check all items are on the same track
-    local first_track = GetTrack(reaper.GetSelectedMediaItem(0, 0))
+    local first_track = reaper.GetMediaItem_Track(reaper.GetSelectedMediaItem(0, 0))
 
     edited_items = {}
     for i = 0, num_selected - 1 do
         local item = reaper.GetSelectedMediaItem(0, i)
-        local track = GetTrack(item)
+        local track = reaper.GetMediaItem_Track(item)
 
         if track ~= first_track then
             Log("ERROR: All edited items must be on the same track", COLORS.RED)
@@ -102,7 +102,7 @@ end
 -- ASYNC PROCESSING LOGIC
 
 local function start_load_audio(item, item_type)
-    processing_state.current_item_name = GetItemName(item)
+    processing_state.current_item_name = DM.Item.GetName(item)
     Log(string.format("Loading %s: %s...", item_type, processing_state.current_item_name))
 
     if not InitAudioLoading(item) then
@@ -137,12 +137,12 @@ local function finalize_peak_detection(item)
 end
 
 local function setup_match_tracks(first_edited_item)
-    local edited_track = GetTrack(first_edited_item)
+    local edited_track = reaper.GetMediaItem_Track(first_edited_item)
     local edited_track_idx = reaper.GetMediaTrackInfo_Value(edited_track, "IP_TRACKNUMBER") - 1
 
     local target_tracks = {}
     for i = 1, TUNABLE.num_match_tracks do
-        local track, is_new = get_or_create_track(edited_track_idx + i, "Match #" .. i)
+        local track, is_new = DM.Track.GetOrCreate(edited_track_idx + i, "Match #" .. i)
         target_tracks[i] = track
 
         local status = is_new and "Created" or "Reusing"
@@ -580,7 +580,7 @@ function ProcessNextStep()
         for match_idx = 1, num_matches_to_create do
             local match = all_matches[match_idx]
             local clean_item = clean_items[match.clean_item_index]
-            local clean_name = GetItemName(clean_item)
+            local clean_name = DM.Item.GetName(clean_item)
 
             Log(string.format("    Match #%d: %.3fs (score: %.3f) from '%s'",
                 match_idx, match.time, match.score, clean_name), COLORS.CYAN)
@@ -652,6 +652,15 @@ function FinishProcessing()
     processing_state.active = false
 end
 
+-- ─── Section card helpers ────────────────────────────────────────────────────
+-- Each collapsible section is wrapped in a bordered child panel so the
+-- CollapsingHeader and its content form a single visual card.
+-- SectionBegin returns true when expanded; always call SectionEnd regardless.
+
+-- Section card helpers delegated to DM_Theme (shared with other tools).
+local function SectionBegin(label, default_open) return Theme.SectionBegin(ctx, label, default_open) end
+local function SectionEnd(open)                  Theme.SectionEnd(ctx, open)                         end
+
 -- GUI
 
 function Loop()
@@ -665,9 +674,15 @@ function Loop()
     -- Match Waveforms (200) + Cancel (100) + Reset Settings (150) + spacing/padding (~50) = 500
     reaper.ImGui_SetNextWindowSizeConstraints(ctx, 500, 400, math.huge, math.huge)
 
-    local visible, open = reaper.ImGui_Begin(ctx, 'Waveform Matcher', true, reaper.ImGui_WindowFlags_None())
+    reaper.ImGui_PushFont(ctx, font_ui, Theme.FONT_SIZE)
+    Theme.PushWindow(ctx)
+    local visible, open = reaper.ImGui_Begin(ctx, 'Waveform Matcher', true,
+        Theme.WindowFlags() | reaper.ImGui_WindowFlags_NoScrollbar() | reaper.ImGui_WindowFlags_NoScrollWithMouse())
+    Theme.PopWindow(ctx)
 
     if visible then
+        Theme.DrawFocusBorder(ctx)
+        Theme.PushUI(ctx)
         -- Check for ESC key to cancel processing
         if is_processing and reaper.ImGui_IsKeyPressed(ctx, reaper.ImGui_Key_Escape()) then
             CancelProcessing()
@@ -676,15 +691,10 @@ function Loop()
         local avail_width = reaper.ImGui_GetContentRegionAvail(ctx)
         local slicerRightSpece = 160
 
-        -- ═══════════════════════════════════════════════════════════════════════
-        -- SECTION: Input Selection
-        -- ═══════════════════════════════════════════════════════════════════════
+        -- ─── Input Selection ─────────────────────────────────────────────────
 
-        reaper.ImGui_SetNextItemOpen(ctx, true, reaper.ImGui_Cond_Once())
-        if reaper.ImGui_CollapsingHeader(ctx, "Input Selection") then
-            reaper.ImGui_Spacing(ctx)
-
-            -- Use a table for aligned layout
+        local sec_input = SectionBegin("Input Selection", true)
+        if sec_input then
             if reaper.ImGui_BeginTable(ctx, "input_table", 3, reaper.ImGui_TableFlags_None()) then
                 reaper.ImGui_TableSetupColumn(ctx, "btn", reaper.ImGui_TableColumnFlags_WidthFixed(), UI.BUTTON_WIDTH)
                 reaper.ImGui_TableSetupColumn(ctx, "status", reaper.ImGui_TableColumnFlags_WidthStretch())
@@ -705,7 +715,7 @@ function Loop()
 
                 reaper.ImGui_TableNextColumn(ctx)
                 if #edited_items > 0 then
-                    if reaper.ImGui_SmallButton(ctx, "Clear##edited") then
+                    if Theme.StyledBtn(ctx, "Clear##edited", Theme.C.cancel, Theme.C.cancel_hov, Theme.C.cancel_act, 0, UI.BUTTON_HEIGHT) then
                         edited_items = {}
                         Log("Cleared edited items", COLORS.GRAY)
                     end
@@ -726,7 +736,7 @@ function Loop()
 
                 reaper.ImGui_TableNextColumn(ctx)
                 if #clean_items > 0 then
-                    if reaper.ImGui_SmallButton(ctx, "Clear##clean") then
+                    if Theme.StyledBtn(ctx, "Clear##clean", Theme.C.cancel, Theme.C.cancel_hov, Theme.C.cancel_act, 0, UI.BUTTON_HEIGHT) then
                         clean_items = {}
                         Log("Cleared clean items", COLORS.GRAY)
                     end
@@ -734,17 +744,13 @@ function Loop()
 
                 reaper.ImGui_EndTable(ctx)
             end
-
-            reaper.ImGui_Spacing(ctx)
         end
+        SectionEnd(sec_input)
 
-        -- ═══════════════════════════════════════════════════════════════════════
-        -- SECTION: Matching Settings
-        -- ═══════════════════════════════════════════════════════════════════════
-        reaper.ImGui_SetNextItemOpen(ctx, true, reaper.ImGui_Cond_Once())
-        if reaper.ImGui_CollapsingHeader(ctx, "Matching Settings") then
-            reaper.ImGui_Spacing(ctx)
+        -- ─── Matching Settings ────────────────────────────────────────────────
 
+        local sec_match = SectionBegin("Matching Settings", true)
+        if sec_match then
             -- Peak Prominence
             reaper.ImGui_SetNextItemWidth(ctx, avail_width - slicerRightSpece)
             local changed, new_val = reaper.ImGui_SliderDouble(ctx, "Peak Prominence", TUNABLE.peak_prominence, 0.0, 1.0, "%.2f")
@@ -766,18 +772,14 @@ function Loop()
             if reaper.ImGui_IsItemHovered(ctx) then
                 reaper.ImGui_SetTooltip(ctx, TOOLTIPS.num_match_tracks)
             end
-
-            reaper.ImGui_Spacing(ctx)
         end
+        SectionEnd(sec_match)
 
-        -- ═══════════════════════════════════════════════════════════════════════
-        -- SECTION: Speech-to-Text (STT)
-        -- ═══════════════════════════════════════════════════════════════════════
+        -- ─── Speech-to-Text (STT) ─────────────────────────────────────────────
+
         if CONFIG.HIDE_STT_SETTINGS then
-            reaper.ImGui_SetNextItemOpen(ctx, true, reaper.ImGui_Cond_Once())
-            if reaper.ImGui_CollapsingHeader(ctx, "Speech-to-Text Configuration") then
-                reaper.ImGui_Spacing(ctx)
-
+            local sec_stt = SectionBegin("Speech-to-Text Configuration", true)
+            if sec_stt then
                 -- Enable checkbox with validation
                 local stt_changed, stt_enabled = reaper.ImGui_Checkbox(ctx, "Enable STT Comparison", TUNABLE.stt_enabled)
                 if stt_changed then
@@ -837,18 +839,14 @@ function Loop()
 
                     reaper.ImGui_Unindent(ctx, 10)
                 end
-
-                reaper.ImGui_Spacing(ctx)
             end
+            SectionEnd(sec_stt)
         end
 
-        -- ═══════════════════════════════════════════════════════════════════════
-        -- SECTION: Advanced Settings
-        -- ═══════════════════════════════════════════════════════════════════════
-        if reaper.ImGui_CollapsingHeader(ctx, "Advanced Settings") then
-            reaper.ImGui_Spacing(ctx)
-            reaper.ImGui_Indent(ctx, 10)
+        -- ─── Advanced Settings ────────────────────────────────────────────────
 
+        local sec_adv = SectionBegin("Advanced Settings", false)
+        if sec_adv then
             reaper.ImGui_SetNextItemWidth(ctx, avail_width - slicerRightSpece)
             local c1, v1 = reaper.ImGui_SliderDouble(ctx, "Min peak distance(ms)", TUNABLE.min_peak_distance_ms, 10, 100, "%.0f")
             if c1 then
@@ -895,14 +893,8 @@ function Loop()
             if reaper.ImGui_IsItemHovered(ctx) then
                 reaper.ImGui_SetTooltip(ctx, TOOLTIPS.No_peaks_before_first)
             end
-
-            reaper.ImGui_Spacing(ctx)
-            reaper.ImGui_Separator(ctx)
-            reaper.ImGui_Spacing(ctx)
-
-            reaper.ImGui_Unindent(ctx, 10)
-            reaper.ImGui_Spacing(ctx)
         end
+        SectionEnd(sec_adv)
 
         reaper.ImGui_Spacing(ctx)
         reaper.ImGui_Separator(ctx)
@@ -918,7 +910,7 @@ function Loop()
         if not can_match then
             reaper.ImGui_BeginDisabled(ctx)
         end
-        if reaper.ImGui_Button(ctx, "Match Waveforms", 200, 40) then
+        if Theme.StyledBtn(ctx, "Match Waveforms", Theme.C.export_btn, Theme.C.export_hov, Theme.C.export_act, 200, 40) then
             StartProcessing()
         end
         if not can_match then
@@ -928,7 +920,7 @@ function Loop()
         -- Cancel button (only shown during processing)
         if is_processing then
             reaper.ImGui_SameLine(ctx)
-            if reaper.ImGui_Button(ctx, "Cancel", 100, 40) then
+            if Theme.StyledBtn(ctx, "Cancel", Theme.C.cancel, Theme.C.cancel_hov, Theme.C.cancel_act, 100, 40) then
                 CancelProcessing()
             end
             if reaper.ImGui_IsItemHovered(ctx) then
@@ -941,7 +933,7 @@ function Loop()
         local cursor_x = reaper.ImGui_GetCursorPosX(ctx)
         local log_avail_width = reaper.ImGui_GetContentRegionAvail(ctx)
         reaper.ImGui_SetCursorPosX(ctx, cursor_x + log_avail_width - 150)
-        if reaper.ImGui_Button(ctx, "Reset Settings", 150, 40) then
+        if Theme.StyledBtn(ctx, "Reset Settings", Theme.C.cancel, Theme.C.cancel_hov, Theme.C.cancel_act, 150, 40) then
             ResetToDefaults()
         end
         if reaper.ImGui_IsItemHovered(ctx) then
@@ -1125,7 +1117,7 @@ function Loop()
         local cursor_x = reaper.ImGui_GetCursorPosX(ctx)
         local log_avail_width = reaper.ImGui_GetContentRegionAvail(ctx)
         reaper.ImGui_SetCursorPosX(ctx, cursor_x + log_avail_width - 45)
-        if reaper.ImGui_SmallButton(ctx, "Clear") then
+        if Theme.StyledBtn(ctx, "Clear##log", Theme.C.cancel, Theme.C.cancel_hov, Theme.C.cancel_act) then
             report_log = {}
         end
 
@@ -1141,7 +1133,7 @@ function Loop()
 
         -- logo size calculation
         local avail = reaper.ImGui_GetContentRegionAvail(ctx)
-        local logo_display_width = 100  -- Adjust size as needed
+        local logo_display_width = 120
         local logo_display_height = logo_display_width * (logo_height / logo_width)
 
         -- Use InputTextMultiline with ReadOnly flag for selectable/copyable text
@@ -1158,10 +1150,12 @@ function Loop()
             reaper.ImGui_SetCursorPosX(ctx, (avail - logo_display_width) / 2)
             reaper.ImGui_Image(ctx, logo_image, logo_display_width, logo_display_height)
             reaper.ImGui_Spacing(ctx)
-            reaper.ImGui_Separator(ctx)
         end
+        Theme.PopUI(ctx)
         reaper.ImGui_End(ctx)
     end
+
+    reaper.ImGui_PopFont(ctx)
 
     if open then
         reaper.defer(Loop)

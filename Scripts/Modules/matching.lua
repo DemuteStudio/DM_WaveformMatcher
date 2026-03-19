@@ -4,7 +4,7 @@
 local function get_envelope_at_time(envelope_data, time_seconds)
     if not envelope_data then return 0 end
 
-    local sample_index = time_to_sample(time_seconds, envelope_data.sample_rate)
+    local sample_index = DM.Time.ToSample(time_seconds, envelope_data.sample_rate)
     sample_index = math.max(1, math.min(#envelope_data.envelope, sample_index))
 
     return envelope_data.envelope[sample_index] or 0

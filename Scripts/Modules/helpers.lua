@@ -1,5 +1,7 @@
 -- compareWaveform/helpers.lua
 -- Utility functions used across modules
+-- DM (global) is loaded by WaveformMatcher.lua before this file.
+-- Provides: DM.Time.ToSample, DM.Time.FromSample, DM.Track.GetOrCreate, DM.Item.GetName
 
 function Log(message, color)
     local timestamp = os.date("%H:%M:%S")
@@ -15,52 +17,6 @@ function Log(message, color)
     end
 end
 
-function time_to_sample(time, sample_rate)
-    return math.floor(time * sample_rate) + 1
-end
-
-function sample_to_time(sample, sample_rate)
-    return (sample - 1) / sample_rate
-end
-
-function get_or_create_track(track_idx, track_name)
-    local track = reaper.GetTrack(0, track_idx)
-
-    if track then
-        local _, existing_name = reaper.GetSetMediaTrackInfo_String(track, "P_NAME", "", false)
-        if existing_name == track_name then
-            return track, false  -- existing
-        end
-    end
-
-    reaper.InsertTrackAtIndex(track_idx, false)
-    track = reaper.GetTrack(0, track_idx)
-    reaper.GetSetMediaTrackInfo_String(track, "P_NAME", track_name, true)
-    return track, true  -- created
-end
-
-function GetItemName(item)
-    local take = reaper.GetActiveTake(item)
-    if take then
-        local _, name = reaper.GetSetMediaItemTakeInfo_String(take, "P_NAME", "", false)
-        return name
-    end
-    return "Unnamed"
-end
-
-function GetTrack(item)
-    return reaper.GetMediaItem_Track(item)
-end
-
--- Normalize path separators to forward slashes (Windows Python accepts these)
--- This fixes "The specified path is invalid" errors caused by backslash escaping in shell commands
-function NormalizePath(path)
-    if not path then return "" end
-    -- Replace all backslashes with forward slashes
-    local normalized = path:gsub("\\", "/")
-    -- Remove any duplicate slashes
-    normalized = normalized:gsub("//+", "/")
-    -- Remove trailing slash if present
-    normalized = normalized:gsub("/$", "")
-    return normalized
-end
+-- Global aliases so existing module code (matching.lua, peaks.lua) keeps working
+time_to_sample = DM.Time.ToSample
+sample_to_time = DM.Time.FromSample

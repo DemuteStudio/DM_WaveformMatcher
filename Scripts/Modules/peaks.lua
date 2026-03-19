@@ -332,7 +332,7 @@ function FinalizePeakDetection()
     for i = 1, #pds.all_peaks do
         local original_sample = (pds.all_peaks[i].index - 1) * CONFIG.DOWNSAMPLE_FACTOR + 1
         peaks[#peaks + 1] = {
-            time = sample_to_time(original_sample, processing_state.temp_sr),
+            time = DM.Time.FromSample(original_sample, processing_state.temp_sr),
             amplitude = pds.all_peaks[i].amplitude
         }
     end
